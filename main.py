@@ -2,6 +2,8 @@ from cleaning import clean_data
 from model_training import train_models
 from visualization import plot_correlation_matrix
 from preprocessing import preprocess_data
+import optuna
+
 
 if __name__ == "__main__":
     df = clean_data("data/marketing_campaign_dataset 2.csv")
@@ -16,4 +18,4 @@ if __name__ == "__main__":
     df.describe()
     plot_correlation_matrix(df)
     preprocess_data(df)
-    train_models(df)
+    train_models(trial=10)
