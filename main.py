@@ -4,7 +4,7 @@ from visualization import plot_correlation_matrix
 from preprocessing import preprocess_data
 
 if __name__ == "__main__":
-    df = clean_data("data/marketing_campaign_dataset.csv")
+    df = clean_data("data/marketing_campaign_dataset 2.csv")
     df.info()
     df['Company'].unique()
     df['Campaign_Type'].unique()
@@ -16,4 +16,4 @@ if __name__ == "__main__":
     df.describe()
     plot_correlation_matrix(df)
     preprocess_data(df)
-    #train_models(df)
+    train_models(df)
