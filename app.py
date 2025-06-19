@@ -10,7 +10,18 @@ app = Flask(__name__)
 
 # Load model and data
 model = joblib.load("models/final_stacking_model.pkl")
-df = pd.read_csv("data/cleaned_campaign_data.csv")
+df = pd.read_csv("data/marketing_campaign_dataset 2.csv")
+drop_cols = ['Campaign_ID']
+df.drop(columns=drop_cols, inplace=True)
+df['Acquisition_Cost'] = df['Acquisition_Cost'].replace('[\$,]', '', regex=True).astype(float)
+df['Duration'] = df['Duration'].str.extract('(\d+)').astype(int)
+df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+df['Campaign_Weekday'] = df['Date'].dt.weekday
+df['Campaign_Month'] = df['Date'].dt.month
+df['Campaign_Quarter'] = df['Date'].dt.quarter
+df['Is_Weekend'] = df['Campaign_Weekday'].isin([5, 6]).astype(int)
+df = df.drop(columns=['Date'])
+
 target_col = "Conversion_Rate"
 X_train = df.drop(columns=[target_col])
 features = X_train.columns.tolist()
@@ -62,7 +73,7 @@ def predict():
 def visualize():
     df = pd.read_csv("data/marketing_campaign_dataset 2.csv")
 
-    # --- Cleaning ---
+    # Cleaning
     drop_cols = ['Campaign_ID']
     df.drop(columns=drop_cols, inplace=True)
     df['Acquisition_Cost'] = df['Acquisition_Cost'].replace('[\$,]', '', regex=True).astype(float)
@@ -74,7 +85,7 @@ def visualize():
     df['Is_Weekend'] = df['Campaign_Weekday'].isin([5, 6]).astype(int)
     df = df.drop(columns=['Date'])
 
-    
+
     images = generate_all_visualizations(df)
     return jsonify({"images": images})
 

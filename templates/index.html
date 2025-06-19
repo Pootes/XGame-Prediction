@@ -1,7 +1,92 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>Conversion Rate Prediction</title>
+    
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 40px 20px;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+    
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+    
+        form {
+            width: 100%;
+            max-width: 600px;
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+        }
+    
+        label {
+            margin-top: 15px;
+            font-weight: 600;
+        }
+    
+        input {
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 14px;
+            width: 100%;
+        }
+    
+        button {
+            margin-top: 20px;
+            padding: 12px 24px;
+            font-size: 16px;
+            color: white;
+            background-color: #3498db;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+    
+        button:hover {
+            background-color: #2980b9;
+        }
+    
+        #prediction-result {
+            text-align: center;
+            font-size: 20px;
+            margin-top: 30px;
+            color: #27ae60;
+        }
+    
+        #graph-gallery {
+            margin-top: 30px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+    
+        #graph-gallery img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+    
+
     <script>
         function submitForm() {
             const form = document.getElementById("input-form");
@@ -10,14 +95,13 @@
             fetch("/predict", {
                 method: "POST",
                 body: formData
-            }).then(res => res.json())
-              .then(data => {
-                  if (data.error) {
-                      alert(data.error);
-                  } else {
-                      document.getElementById("prediction-result").innerText = "Predicted Conversion Rate: " + data.prediction;
-                  }
-              });
+            })
+            .then(res => res.json())
+            .then(data => {
+                const result = document.getElementById("prediction-result");
+                result.innerText = data.error ? `Error: ${data.error}` 
+                                              : `Predicted Conversion Rate: ${data.prediction}`;
+            });
         }
 
         function showVisualization() {
@@ -25,31 +109,41 @@
                 .then(res => res.json())
                 .then(data => {
                     const container = document.getElementById("graph-gallery");
-                    container.innerHTML = ""; // Clear previous
+                    container.innerHTML = "";
                     data.images.forEach(src => {
                         const img = document.createElement("img");
                         img.src = src;
-                        img.style.maxWidth = "100%";
-                        img.style.marginBottom = "20px";
                         container.appendChild(img);
                     });
                 });
         }
-
     </script>
 </head>
 <body>
     <h1>Predict Conversion Rate</h1>
+
     <form id="input-form" onsubmit="event.preventDefault(); submitForm();">
         {% for feature in features %}
-            <label>{{ feature }}:</label>
-            <input name="{{ feature }}" type="text" required><br>
+            <label for="{{ feature }}">{{ feature }}</label>
+            <input 
+                name="{{ feature }}" 
+                id="{{ feature }}" 
+                type="text" 
+                required 
+                placeholder="{{ dtypes[feature] }}">
         {% endfor %}
         <button type="submit">Predict</button>
     </form>
-    <h2 id="prediction-result"></h2>
-    <hr>
-    <button onclick="showVisualization()">Show Visualizations</button><br><br>
+    
+
+    <div id="prediction-result"></div>
+
+    <hr style="margin: 50px auto; width: 80%;">
+
+    <div style="text-align: center;">
+        <button onclick="showVisualization()">Show Visualizations</button>
+    </div>
+
     <div id="graph-gallery"></div>
 </body>
 </html>
