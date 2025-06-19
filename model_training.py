@@ -3,6 +3,7 @@ import numpy as np
 import os
 import joblib
 import optuna
+import time
 from sklearn.model_selection import KFold, cross_val_score, train_test_split
 from sklearn.ensemble import StackingRegressor
 from sklearn.linear_model import Ridge
@@ -11,7 +12,6 @@ from sklearn.preprocessing import LabelEncoder
 from xgboost import XGBRegressor
 from lightgbm import LGBMRegressor
 from inputimeout import inputimeout, TimeoutOccurred
-
 
 # Config
 TARGET_COL = "Conversion_Rate"
@@ -23,11 +23,10 @@ os.makedirs(MODEL_DIR, exist_ok=True)
 
 STUDY_PATH = os.path.join(MODEL_DIR, "optuna_study.pkl")
 MODEL_PATH = os.path.join(MODEL_DIR, "final_stacking_model.pkl")
+LOG_PATH = os.path.join(MODEL_DIR, "training_log.txt")
 
 # Load and Preprocess Data 
 engineered_df = pd.read_csv("data/cleaned_campaign_data.csv")
-
-# Encode categorical variables
 for col in engineered_df.select_dtypes(include=["object"]):
     engineered_df[col] = LabelEncoder().fit_transform(engineered_df[col].astype(str))
 
@@ -36,7 +35,6 @@ y = engineered_df[TARGET_COL]
 
 kf = KFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
 
-# Model Factory
 def create_model(xgb_params, lgbm_params):
     xgb = XGBRegressor(**xgb_params, random_state=RANDOM_STATE, verbosity=0)
     lgbm = LGBMRegressor(**lgbm_params, random_state=RANDOM_STATE)
@@ -46,7 +44,6 @@ def create_model(xgb_params, lgbm_params):
         n_jobs=-1
     )
 
-# Optuna Objective
 def train_models(trial):
     xgb_params = {
         "n_estimators": trial.suggest_int("xgb_n_estimators", 50, 300),
@@ -60,12 +57,10 @@ def train_models(trial):
         "learning_rate": trial.suggest_float("lgbm_learning_rate", 0.05, 0.2),
         "n_jobs": -1
     }
-
     model = create_model(xgb_params, lgbm_params)
     scores = cross_val_score(model, X, y, scoring="neg_root_mean_squared_error", cv=kf, n_jobs=-1)
     return -scores.mean()
 
-# User Choice
 load_existing = False
 if os.path.exists(STUDY_PATH) and os.path.exists(MODEL_PATH):
     try:
@@ -75,38 +70,38 @@ if os.path.exists(STUDY_PATH) and os.path.exists(MODEL_PATH):
     except TimeoutOccurred:
         print("\n[Timed out after 30s] Proceeding with new Optuna study")
 
-
 if load_existing:
-    print("Loading existing study and model...")
+    print("Loading existing study and model")
     study = joblib.load(STUDY_PATH)
     final_model = joblib.load(MODEL_PATH)
+    optuna_duration = training_duration = None  # No timing for loaded model
 else:
-    print("Running new Optuna optimization...")
+    print("Running new Optuna optimization")
+    start_optuna = time.time()
     study = optuna.create_study(direction="minimize")
     study.optimize(train_models, n_trials=N_TRIALS)
+    end_optuna = time.time()
+    optuna_duration = end_optuna - start_optuna
 
     print("Best parameters found:", study.best_params)
     print("Best RMSE from cross-validation:", study.best_value)
 
-    # Extract best params
-    best_xgb_params = {
-        k.replace("xgb_", ""): v for k, v in study.best_params.items() if k.startswith("xgb_")
-    }
-    best_lgbm_params = {
-        k.replace("lgbm_", ""): v for k, v in study.best_params.items() if k.startswith("lgbm_")
-    }
+    best_xgb_params = {k.replace("xgb_", ""): v for k, v in study.best_params.items() if k.startswith("xgb_")}
+    best_lgbm_params = {k.replace("lgbm_", ""): v for k, v in study.best_params.items() if k.startswith("lgbm_")}
 
-    # Train final model
     final_model = create_model(best_xgb_params, best_lgbm_params)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE)
-    final_model.fit(X_train, y_train)
 
-    # Save
+    start_training = time.time()
+    final_model.fit(X_train, y_train)
+    end_training = time.time()
+    training_duration = end_training - start_training
+
     joblib.dump(final_model, MODEL_PATH)
     joblib.dump(study, STUDY_PATH)
     print("Final model and Optuna study saved to 'models/'")
 
-# Evaluation
+# Evaluate
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE)
 y_pred = final_model.predict(X_test)
 
@@ -115,3 +110,13 @@ mae = mean_absolute_error(y_test, y_pred)
 r2 = r2_score(y_test, y_pred)
 
 print(f"\nTest Evaluation:\n - RMSE: {rmse:.4f}\n - MAE: {mae:.4f}\n - R²: {r2:.4f}")
+
+# Log durations
+with open(LOG_PATH, "w") as f:
+    if optuna_duration:
+        f.write(f"Optuna Study Time: {optuna_duration:.2f} sec ({optuna_duration / 60:.2f} min)\n")
+    if training_duration:
+        f.write(f"Model Training Time: {training_duration:.2f} sec ({training_duration / 60:.2f} min)\n")
+    f.write(f"Final Evaluation:\n  - RMSE: {rmse:.4f}\n  - MAE: {mae:.4f}\n  - R2: {r2:.4f}\n")
+
+print(f"\nTraining times and evaluation saved to: {LOG_PATH}")
