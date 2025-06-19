@@ -33,9 +33,16 @@ for col in X_train.select_dtypes(include="object").columns:
     codes, uniques = pd.factorize(X_train[col])
     factorize_maps[col] = {k: v for v, k in enumerate(uniques)}
 
+# Extract unique values for object-type features (for dropdowns)
+categories = {
+    col: sorted(X_train[col].dropna().unique().tolist())
+    for col in X_train.select_dtypes(include="object").columns
+}
+
+
 @app.route("/")
 def index():
-    return render_template("index.html", features=features, dtypes=dtypes)
+    return render_template("index.html", features=features, dtypes=dtypes, categories=categories)
 
 @app.route("/predict", methods=["POST"])
 def predict():

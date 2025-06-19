@@ -37,15 +37,27 @@
             margin-top: 15px;
             font-weight: 600;
         }
-    
-        input {
+
+        input, select {
             padding: 10px;
             margin-top: 5px;
             border: 1px solid #ccc;
             border-radius: 6px;
             font-size: 14px;
             width: 100%;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', sans-serif;
+            background-color: white;
+            color: #333;
         }
+
+        /* Remove custom arrow (reset to default native styling) */
+        select {
+            appearance: auto;
+            -webkit-appearance: auto;
+            -moz-appearance: auto;
+        }
+
     
         button {
             margin-top: 20px;
@@ -125,15 +137,25 @@
     <form id="input-form" onsubmit="event.preventDefault(); submitForm();">
         {% for feature in features %}
             <label for="{{ feature }}">{{ feature }}</label>
-            <input 
-                name="{{ feature }}" 
-                id="{{ feature }}" 
-                type="text" 
-                required 
-                placeholder="{{ dtypes[feature] }}">
+            {% if dtypes[feature] == "object" and feature in categories %}
+                <select name="{{ feature }}" id="{{ feature }}" required>
+                    {% for option in categories[feature] %}
+                        <option value="{{ option }}">{{ option }}</option>
+                    {% endfor %}
+                </select>
+            {% else %}
+                <input 
+                    name="{{ feature }}" 
+                    id="{{ feature }}" 
+                    type="text" 
+                    required 
+                    placeholder="{{ dtypes[feature] }}">
+            {% endif %}
         {% endfor %}
         <button type="submit">Predict</button>
     </form>
+
+
     
 
     <div id="prediction-result"></div>
