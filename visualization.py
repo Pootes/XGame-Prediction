@@ -1,94 +1,104 @@
+import matplotlib
+matplotlib.use('Agg')  # Headless backend (no GUI required)
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
+import io
+import base64
 
-def plot_correlation_matrix(df):
-    plt.figure(figsize=(12, 8))
-    sns.heatmap(df.corr(numeric_only=True), annot=True, cmap='coolwarm')
+def generate_all_visualizations(df):
+    images = []
+
+    def save_current_plot():
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', bbox_inches='tight')
+        buf.seek(0)
+        image_base64 = base64.b64encode(buf.read()).decode('utf-8')
+        plt.close()
+        return f"data:image/png;base64,{image_base64}"
+
+    # 1. Correlation Matrix
+    plt.figure(figsize=(14, 10))
+    sns.heatmap(df.corr(numeric_only=True), annot=True, cmap='coolwarm', fmt='.4f', annot_kws={'fontsize': 8})
     plt.title("Correlation Matrix")
+    plt.xlabel("Features")
+    plt.ylabel("Features")
     plt.tight_layout()
-    plt.show()
+    images.append(save_current_plot())
 
-def visualize_conversion_insights(df):
-    # 1. Avg Conversion Rate by Campaign Type
+    # 2. Average Conversion Rate by Campaign Type
     avg_by_campaign = df.groupby('Campaign_Type')['Conversion_Rate'].mean()
     _plot_bar(avg_by_campaign, 'Campaign Types', 'Average Conversion Rate (%) by Campaign Type')
+    images.append(save_current_plot())
 
-    # 2. Heatmap: Conversion by Audience, Campaign Type, Channel
+    # 3. Conversion Heatmap by Audience, Campaign Type, Channel
     heatmap_data = df.groupby(['Target_Audience', 'Campaign_Type', 'Channel_Used'])['Conversion_Rate'].mean().unstack()
-    plt.figure(figsize=(16, 8))
-    sns.heatmap(heatmap_data, annot=True, fmt='.2%', linewidths=0.5, cbar_kws={'label': 'Conversion Rate'})
+    plt.figure(figsize=(18, 10))
+    sns.heatmap(heatmap_data, annot=True, fmt='.2%', linewidths=0.5, cbar_kws={'label': 'Conversion Rate'}, annot_kws={'fontsize': 7})
     plt.title('Conversion Rate by Target Audience, Campaign Type, and Channel')
     plt.xlabel('Channel')
     plt.ylabel('Target Audience / Campaign Type')
-    plt.xticks(rotation=0)
     plt.tight_layout()
-    plt.show()
+    images.append(save_current_plot())
 
-    # 3. Avg Conversion Rate by Customer Segment
+    # 4–8. Bar Plots
     avg_by_segment = df.groupby('Customer_Segment')['Conversion_Rate'].mean()
-    _plot_bar(avg_by_segment, 'Customer Segment', 'Average Conversion Rate (%) by Customer Segment')
+    images.append(_plot_bar(avg_by_segment, 'Customer Segment', 'Average Conversion Rate (%) by Customer Segment', return_img=True))
 
-    # 4. Avg Conversion Rate by Channel
     avg_by_channel = df.groupby('Channel_Used')['Conversion_Rate'].mean()
-    _plot_bar(avg_by_channel, 'Channel', 'Average Conversion Rate (%) by Channel')
+    images.append(_plot_bar(avg_by_channel, 'Channel', 'Average Conversion Rate (%) by Channel', return_img=True))
 
-    # 5. Avg Conversion Rate by Duration
     avg_by_duration = df.groupby('Duration')['Conversion_Rate'].mean()
-    _plot_bar(avg_by_duration, 'Duration', 'Average Conversion Rate (%) by Duration')
+    images.append(_plot_bar(avg_by_duration, 'Duration', 'Average Conversion Rate (%) by Duration', return_img=True))
 
-    # 6. Avg Conversion Rate by Location
     avg_by_location = df.groupby('Location')['Conversion_Rate'].mean()
-    _plot_bar(avg_by_location, 'Location', 'Average Conversion Rate (%) by Location')
+    images.append(_plot_bar(avg_by_location, 'Location', 'Average Conversion Rate (%) by Location', return_img=True))
 
-    # 7. Avg Conversion Rate by Language
     avg_by_language = df.groupby('Language')['Conversion_Rate'].mean()
-    _plot_bar(avg_by_language, 'Language', 'Average Conversion Rate (%) by Language')
+    images.append(_plot_bar(avg_by_language, 'Language', 'Average Conversion Rate (%) by Language', return_img=True))
 
-    # 8. Correlation: Engagement, ROI, Cost
+    # 9. Correlation: Engagement, ROI, Cost
     selected = df[['Engagement_Score', 'Conversion_Rate', 'Acquisition_Cost', 'ROI']]
-    plt.figure(figsize=(16, 5))
-    sns.heatmap(selected.corr(), annot=True, cmap='coolwarm', fmt='.2f')
+    plt.figure(figsize=(14, 6))
+    sns.heatmap(selected.corr(), annot=True, cmap='coolwarm', fmt='.4f', annot_kws={'fontsize': 8})
     plt.title('Correlation between Engagement Score and Other Metrics')
+    plt.xlabel("Metrics")
+    plt.ylabel("Metrics")
     plt.tight_layout()
-    plt.show()
+    images.append(save_current_plot())
 
-    # 9. Time Series: Monthly Conversion Rate
-    df['Year'] = df['Date'].dt.year
-    df['Month'] = df['Date'].dt.month
-    monthly = df.groupby(['Year', 'Month'])[['Engagement_Score', 'Conversion_Rate', 'ROI']].mean().reset_index()
-    plt.figure(figsize=(16, 5))
-    sns.lineplot(data=monthly, x='Month', y='Conversion_Rate', hue='Year', marker='o')
-    for line in plt.gca().lines:
-        for x_data, y_data in zip(line.get_xdata(), line.get_ydata()):
-            plt.text(x_data, y_data, f'{y_data:.2%}', ha='center', va='bottom', color='#0056B3')
-    plt.xticks(ticks=range(1, 13), labels=['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
-    plt.title('Monthly Average Conversion Rate (%) by Year')
-    plt.xlabel('Month')
+    # 10. Time Series: Monthly Conversion Rate
+    monthly = df.groupby('Campaign_Month')[['Conversion_Rate']].mean().reset_index()
+    plt.figure(figsize=(14, 6))
+    sns.lineplot(data=monthly, x='Campaign_Month', y='Conversion_Rate', marker='o')
+    plt.title('Average Conversion Rate (%) by Campaign Month')
+    plt.xlabel('Month (1 = Jan, ..., 12 = Dec)')
     plt.ylabel('Conversion Rate (%)')
-    plt.grid(False)
+    plt.xticks(range(1, 13))
+    plt.grid(True)
     plt.tight_layout()
-    plt.show()
+    images.append(save_current_plot())
 
-    # 10. Conversion Rate vs Acquisition Cost Correlation
-    conversion_and_cost = df[['Conversion_Rate', 'Acquisition_Cost']].corr()
-    plt.figure(figsize=(8, 4))
-    sns.heatmap(conversion_and_cost, annot=True, cmap='coolwarm', fmt='.2f')
-    plt.title('Correlation between Conversion Rate and Acquisition Cost')
-    plt.tight_layout()
-    plt.show()
+    return images
 
-
-def _plot_bar(series, xlabel, title, color_palette=None):
+def _plot_bar(series, xlabel, title, color_palette=None, return_img=False):
     colors = color_palette if color_palette else ['#FC4100', '#0056B3', '#FFC55A', '#9BC4F8', '#59D5E0', '#FB773C']
-    bars = series.plot(kind='bar', color=colors[:len(series)], figsize=(16, 5))
+    bars = series.plot(kind='bar', color=colors[:len(series)], figsize=(16, 6))
     plt.title(title)
     plt.xlabel(xlabel)
-    plt.xticks(rotation=0)
     plt.ylabel("Average Conversion Rate (%)")
+    plt.xticks(rotation=0)
     for bar in bars.patches:
         height = bar.get_height()
         bars.annotate(f'{height:.2%}', (bar.get_x() + bar.get_width() / 2, height),
-                      ha='center', va='center', xytext=(0, 5), textcoords='offset points')
+                      ha='center', va='center', xytext=(0, 5), textcoords='offset points', fontsize=9)
     plt.tight_layout()
-    plt.show()
+    
+    if return_img:
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', bbox_inches='tight')
+        buf.seek(0)
+        image_base64 = base64.b64encode(buf.read()).decode('utf-8')
+        plt.close()
+        return f"data:image/png;base64,{image_base64}"

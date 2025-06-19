@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Conversion Rate Prediction</title>
+    <script>
+        function submitForm() {
+            const form = document.getElementById("input-form");
+            const formData = new FormData(form);
+
+            fetch("/predict", {
+                method: "POST",
+                body: formData
+            }).then(res => res.json())
+              .then(data => {
+                  if (data.error) {
+                      alert(data.error);
+                  } else {
+                      document.getElementById("prediction-result").innerText = "Predicted Conversion Rate: " + data.prediction;
+                  }
+              });
+        }
+
+        function showVisualization() {
+            fetch("/visualize")
+                .then(res => res.json())
+                .then(data => {
+                    const container = document.getElementById("graph-gallery");
+                    container.innerHTML = ""; // Clear previous
+                    data.images.forEach(src => {
+                        const img = document.createElement("img");
+                        img.src = src;
+                        img.style.maxWidth = "100%";
+                        img.style.marginBottom = "20px";
+                        container.appendChild(img);
+                    });
+                });
+        }
+
+    </script>
+</head>
+<body>
+    <h1>Predict Conversion Rate</h1>
+    <form id="input-form" onsubmit="event.preventDefault(); submitForm();">
+        {% for feature in features %}
+            <label>{{ feature }}:</label>
+            <input name="{{ feature }}" type="text" required><br>
+        {% endfor %}
+        <button type="submit">Predict</button>
+    </form>
+    <h2 id="prediction-result"></h2>
+    <hr>
+    <button onclick="showVisualization()">Show Visualizations</button><br><br>
+    <div id="graph-gallery"></div>
+</body>
+</html>

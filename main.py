@@ -16,6 +16,5 @@ if __name__ == "__main__":
     df['Location'].unique()
     df['Customer_Segment'].unique()
     df.describe()
-    plot_correlation_matrix(df)
     preprocess_data(df)
     train_models(trial=10)
