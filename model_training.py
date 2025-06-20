@@ -102,21 +102,35 @@ else:
     print("Final model and Optuna study saved to 'models/'")
 
 # Evaluate
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE)
-y_pred = final_model.predict(X_test)
+# K-Fold Final Evaluation
+rmse_scores = []
+mae_scores = []
+r2_scores = []
 
-rmse = root_mean_squared_error(y_test, y_pred)
-mae = mean_absolute_error(y_test, y_pred)
-r2 = r2_score(y_test, y_pred)
+for train_index, test_index in kf.split(X):
+    X_train_fold, X_test_fold = X.iloc[train_index], X.iloc[test_index]
+    y_train_fold, y_test_fold = y.iloc[train_index], y.iloc[test_index]
 
-print(f"\nTest Evaluation:\n - RMSE: {rmse:.4f}\n - MAE: {mae:.4f}\n - R²: {r2:.4f}")
+    final_model.fit(X_train_fold, y_train_fold)
+    y_pred_fold = final_model.predict(X_test_fold)
+
+    rmse_scores.append(root_mean_squared_error(y_test_fold, y_pred_fold))
+    mae_scores.append(mean_absolute_error(y_test_fold, y_pred_fold))
+    r2_scores.append(r2_score(y_test_fold, y_pred_fold))
+
+# Report average across folds
+rmse = np.mean(rmse_scores)
+mae = np.mean(mae_scores)
+r2 = np.mean(r2_scores)
+
+print(f"\nK-Fold Evaluation (5 folds):\n - Avg RMSE: {rmse:.4f}\n - Avg MAE: {mae:.4f}\n - Avg R²: {r2:.4f}")
+
 
 # Log durations
 with open(LOG_PATH, "w") as f:
     if optuna_duration:
         f.write(f"Optuna Study Time: {optuna_duration:.2f} sec ({optuna_duration / 60:.2f} min)\n")
     if training_duration:
-        f.write(f"Model Training Time: {training_duration:.2f} sec ({training_duration / 60:.2f} min)\n")
-    f.write(f"Final Evaluation:\n  - RMSE: {rmse:.4f}\n  - MAE: {mae:.4f}\n  - R2: {r2:.4f}\n")
+        f.write(f"Model Training Time (1-fold): {training_duration:.2f} sec ({training_duration / 60:.2f} min)\n")
+    f.write(f"K-Fold Final Evaluation (5 folds):\n  - Avg RMSE: {rmse:.4f}\n  - Avg MAE: {mae:.4f}\n  - Avg R2: {r2:.4f}\n")
 
-print(f"\nTraining times and evaluation saved to: {LOG_PATH}")
